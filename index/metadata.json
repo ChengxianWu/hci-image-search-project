@@ -1,0 +1,162 @@
+[
+  {
+    "path": "data/images\\apple_001.jpg",
+    "file_name": "apple_001.jpg",
+    "category": "apple"
+  },
+  {
+    "path": "data/images\\apple_002.jpg",
+    "file_name": "apple_002.jpg",
+    "category": "apple"
+  },
+  {
+    "path": "data/images\\apple_003.jpg",
+    "file_name": "apple_003.jpg",
+    "category": "apple"
+  },
+  {
+    "path": "data/images\\apple_004.jpg",
+    "file_name": "apple_004.jpg",
+    "category": "apple"
+  },
+  {
+    "path": "data/images\\banana_001.jpg",
+    "file_name": "banana_001.jpg",
+    "category": "banana"
+  },
+  {
+    "path": "data/images\\banana_002.jpg",
+    "file_name": "banana_002.jpg",
+    "category": "banana"
+  },
+  {
+    "path": "data/images\\banana_003.jpg",
+    "file_name": "banana_003.jpg",
+    "category": "banana"
+  },
+  {
+    "path": "data/images\\banana_004.jpg",
+    "file_name": "banana_004.jpg",
+    "category": "banana"
+  },
+  {
+    "path": "data/images\\bread_001.jpg",
+    "file_name": "bread_001.jpg",
+    "category": "bread"
+  },
+  {
+    "path": "data/images\\bread_002.jpg",
+    "file_name": "bread_002.jpg",
+    "category": "bread"
+  },
+  {
+    "path": "data/images\\bread_003.jpg",
+    "file_name": "bread_003.jpg",
+    "category": "bread"
+  },
+  {
+    "path": "data/images\\bread_004.jpg",
+    "file_name": "bread_004.jpg",
+    "category": "bread"
+  },
+  {
+    "path": "data/images\\carrot_001.jpg",
+    "file_name": "carrot_001.jpg",
+    "category": "carrot"
+  },
+  {
+    "path": "data/images\\carrot_002.jpg",
+    "file_name": "carrot_002.jpg",
+    "category": "carrot"
+  },
+  {
+    "path": "data/images\\carrot_003.jpg",
+    "file_name": "carrot_003.jpg",
+    "category": "carrot"
+  },
+  {
+    "path": "data/images\\carrot_004.jpg",
+    "file_name": "carrot_004.jpg",
+    "category": "carrot"
+  },
+  {
+    "path": "data/images\\grape_001.jpg",
+    "file_name": "grape_001.jpg",
+    "category": "grape"
+  },
+  {
+    "path": "data/images\\grape_002.jpg",
+    "file_name": "grape_002.jpg",
+    "category": "grape"
+  },
+  {
+    "path": "data/images\\grape_003.jpg",
+    "file_name": "grape_003.jpg",
+    "category": "grape"
+  },
+  {
+    "path": "data/images\\grape_004.jpg",
+    "file_name": "grape_004.jpg",
+    "category": "grape"
+  },
+  {
+    "path": "data/images\\milk_001.jpg",
+    "file_name": "milk_001.jpg",
+    "category": "milk"
+  },
+  {
+    "path": "data/images\\milk_002.jpg",
+    "file_name": "milk_002.jpg",
+    "category": "milk"
+  },
+  {
+    "path": "data/images\\milk_003.jpg",
+    "file_name": "milk_003.jpg",
+    "category": "milk"
+  },
+  {
+    "path": "data/images\\milk_004.jpg",
+    "file_name": "milk_004.jpg",
+    "category": "milk"
+  },
+  {
+    "path": "data/images\\orange_001.jpg",
+    "file_name": "orange_001.jpg",
+    "category": "orange"
+  },
+  {
+    "path": "data/images\\orange_002.jpg",
+    "file_name": "orange_002.jpg",
+    "category": "orange"
+  },
+  {
+    "path": "data/images\\orange_003.jpg",
+    "file_name": "orange_003.jpg",
+    "category": "orange"
+  },
+  {
+    "path": "data/images\\orange_004.jpg",
+    "file_name": "orange_004.jpg",
+    "category": "orange"
+  },
+  {
+    "path": "data/images\\tomato_001.jpg",
+    "file_name": "tomato_001.jpg",
+    "category": "tomato"
+  },
+  {
+    "path": "data/images\\tomato_002.jpg",
+    "file_name": "tomato_002.jpg",
+    "category": "tomato"
+  },
+  {
+    "path": "data/images\\tomato_003.jpg",
+    "file_name": "tomato_003.jpg",
+    "category": "tomato"
+  },
+  {
+    "path": "data/images\\tomato_004.jpg",
+    "file_name": "tomato_004.jpg",
+    "category": "tomato"
+  }
+]

@@ -216,3 +216,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Large generated files
+outputs/
+*.zip
+
+# Model/cache files
+.cache/
+huggingface/
+
+# OS files
+.DS_Store
+Thumbs.db

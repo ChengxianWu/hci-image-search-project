@@ -1,0 +1,8 @@
+gradio
+torch
+torchvision
+transformers
+pillow
+numpy
+tqdm
+scikit-learn
