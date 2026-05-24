@@ -233,6 +233,7 @@ outputs/
 # Model/cache files
 .cache/
 huggingface/
+models/
 
 # OS files
 .DS_Store

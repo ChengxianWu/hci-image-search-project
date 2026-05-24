@@ -1,5 +1,6 @@
 import hashlib
 import os
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -7,67 +8,178 @@ from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
 
-class CLIPEncoder:
-    def __init__(self, model_name="openai/clip-vit-base-patch32"):
-        """Load CLIP when available, with a local fallback for offline demos."""
-        self.mode = os.environ.get("IMAGE_SEARCH_ENCODER", "auto").lower()
-        self.model_name = os.environ.get("CLIP_MODEL_NAME", model_name)
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.backend = "fallback"
+class LightweightFallbackEncoder:
+    """
+    Offline fallback encoder.
 
-        if self.mode in {"fallback", "simple"}:
-            print("[INFO] Using local fallback encoder.")
-            self.model = None
-            self.processor = None
-            return
+    It is only used when the real CLIP model is not available.
+    This keeps the UI runnable, but retrieval quality is weaker than real CLIP.
+    """
 
-        try:
-            print(f"[INFO] Using device: {self.device}")
-            print(f"[INFO] Loading CLIP model: {self.model_name}")
-            local_only = self.mode == "auto"
-            self.model = CLIPModel.from_pretrained(
-                self.model_name,
-                local_files_only=local_only,
-            ).to(self.device)
-            self.processor = CLIPProcessor.from_pretrained(
-                self.model_name,
-                local_files_only=local_only,
-            )
-            self.model.eval()
-            self.backend = "clip"
-            print("[INFO] CLIP model loaded.")
-        except Exception as exc:
-            if self.mode == "clip":
-                raise
-            print(f"[WARNING] CLIP model is not available locally: {exc}")
-            print("[INFO] Falling back to a lightweight local encoder.")
-            self.model = None
-            self.processor = None
+    def __init__(self, dim=512):
+        self.dim = dim
+        print("[INFO] Falling back to a lightweight local encoder.")
+
+    def _normalize(self, vec):
+        vec = vec.astype("float32")
+        norm = np.linalg.norm(vec)
+        if norm == 0:
+            return vec
+        return vec / norm
+
+    def encode_text(self, text):
+        # Use a stable hash instead of Python's built-in hash(), which may vary
+        # between processes.
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        seed = int.from_bytes(digest[:8], byteorder="little", signed=False) % (2**32)
+        rng = np.random.default_rng(seed)
+        vec = rng.normal(size=self.dim)
+        return self._normalize(vec)
 
     def encode_image(self, image_path_or_pil):
-        """Encode an image path or PIL image into a normalized CLIP vector."""
-        source_name = None
         if isinstance(image_path_or_pil, str):
-            source_name = os.path.basename(image_path_or_pil).lower()
             image = Image.open(image_path_or_pil).convert("RGB")
         else:
             image = image_path_or_pil.convert("RGB")
 
-        if self.backend == "fallback":
-            return self._encode_image_fallback(image, source_name)
+        image = image.resize((64, 64))
+        arr = np.asarray(image).astype("float32") / 255.0
 
-        inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+        mean = arr.mean(axis=(0, 1))
+        std = arr.std(axis=(0, 1))
+
+        base = np.concatenate([mean, std])
+        vec = np.zeros(self.dim, dtype="float32")
+        vec[: len(base)] = base
+
+        return self._normalize(vec)
+
+
+class CLIPEncoder:
+    def __init__(
+        self,
+        model_name="openai/clip-vit-base-patch32",
+        local_model_dir="models/clip-vit-base-patch32",
+        allow_fallback=True,
+    ):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = None
+        self.processor = None
+        self.fallback = None
+
+        self.force_clip = os.environ.get("FORCE_CLIP", "0") == "1"
+        local_model_path = Path(local_model_dir)
+
+        print(f"[INFO] Using device: {self.device}")
+
+        try:
+            if self._has_local_clip_files(local_model_path):
+                print(f"[INFO] Loading real CLIP from local path: {local_model_path}")
+                self.model = CLIPModel.from_pretrained(
+                    str(local_model_path),
+                    local_files_only=True,
+                ).to(self.device)
+
+                self.processor = CLIPProcessor.from_pretrained(
+                    str(local_model_path),
+                    local_files_only=True,
+                )
+
+            else:
+                if self.force_clip:
+                    raise FileNotFoundError(
+                        f"Local CLIP model not found in {local_model_path}. "
+                        "Please run: python scripts/download_clip.py or "
+                        "python scripts/download_clip_direct.py"
+                    )
+
+                print(f"[WARNING] Local CLIP model not found: {local_model_path}")
+                print(f"[INFO] Trying to load CLIP from Hugging Face: {model_name}")
+
+                self.model = CLIPModel.from_pretrained(model_name).to(self.device)
+                self.processor = CLIPProcessor.from_pretrained(model_name)
+
+            self.model.eval()
+            print("[INFO] Real CLIP model loaded successfully.")
+
+        except Exception as e:
+            print(f"[WARNING] Failed to load real CLIP: {e}")
+
+            if self.force_clip:
+                raise RuntimeError(
+                    "FORCE_CLIP=1 is set, so fallback is disabled. "
+                    "Please download the real CLIP model first."
+                ) from e
+
+            if not allow_fallback:
+                raise
+
+            self.fallback = LightweightFallbackEncoder(dim=512)
+
+    def _has_local_clip_files(self, local_model_path):
+        if not local_model_path.exists():
+            return False
+
+        has_config = (local_model_path / "config.json").exists()
+        has_processor = (local_model_path / "preprocessor_config.json").exists()
+        has_vocab = (local_model_path / "vocab.json").exists()
+        has_merges = (local_model_path / "merges.txt").exists()
+        has_weight = (
+            (local_model_path / "pytorch_model.bin").exists()
+            or (local_model_path / "model.safetensors").exists()
+        )
+
+        return has_config and has_processor and has_vocab and has_merges and has_weight
+
+    def _normalize_torch_feature(self, features):
+        """
+        Convert CLIP outputs to a normalized tensor.
+
+        Normally CLIPModel.get_image_features() / get_text_features() returns a
+        torch.Tensor directly. This helper is deliberately defensive: if an
+        output object such as BaseModelOutputWithPooling is returned by mistake,
+        it extracts pooler_output instead of calling .norm() on the whole object.
+        """
+        if isinstance(features, torch.Tensor):
+            feature_tensor = features
+        elif hasattr(features, "pooler_output") and features.pooler_output is not None:
+            feature_tensor = features.pooler_output
+        elif hasattr(features, "last_hidden_state") and features.last_hidden_state is not None:
+            feature_tensor = features.last_hidden_state[:, 0]
+        else:
+            raise TypeError(
+                f"Unsupported CLIP output type: {type(features)}. "
+                "Expected a torch.Tensor or an output object with pooler_output."
+            )
+
+        feature_tensor = feature_tensor / feature_tensor.norm(dim=-1, keepdim=True)
+        return feature_tensor
+
+    def encode_image(self, image_path_or_pil):
+        if self.fallback is not None:
+            return self.fallback.encode_image(image_path_or_pil)
+
+        if isinstance(image_path_or_pil, str):
+            image = Image.open(image_path_or_pil).convert("RGB")
+        else:
+            image = image_path_or_pil.convert("RGB")
+
+        inputs = self.processor(
+            images=image,
+            return_tensors="pt",
+        ).to(self.device)
 
         with torch.no_grad():
+            # Correct CLIP feature extraction API. This should return a Tensor.
             image_features = self.model.get_image_features(**inputs)
 
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        return image_features.cpu().numpy()[0]
+        image_features = self._normalize_torch_feature(image_features)
+
+        return image_features.cpu().numpy()[0].astype("float32")
 
     def encode_text(self, text):
-        """Encode text into a normalized CLIP vector."""
-        if self.backend == "fallback":
-            return self._encode_text_fallback(text)
+        if self.fallback is not None:
+            return self.fallback.encode_text(text)
 
         inputs = self.processor(
             text=[text],
@@ -77,71 +189,12 @@ class CLIPEncoder:
         ).to(self.device)
 
         with torch.no_grad():
+            # Correct CLIP feature extraction API. This should return a Tensor.
             text_features = self.model.get_text_features(**inputs)
 
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        return text_features.cpu().numpy()[0]
+        text_features = self._normalize_torch_feature(text_features)
 
-    def _encode_image_fallback(self, image, source_name=None):
-        resized = image.resize((64, 64))
-        pixels = np.asarray(resized).astype("float32") / 255.0
-        mean_rgb = pixels.mean(axis=(0, 1))
-        std_rgb = pixels.std(axis=(0, 1))
+        return text_features.cpu().numpy()[0].astype("float32")
 
-        vector = np.zeros(512, dtype="float32")
-        vector[0:3] = mean_rgb
-        vector[3:6] = std_rgb
-
-        hist_features = []
-        for channel in range(3):
-            hist, _ = np.histogram(pixels[:, :, channel], bins=16, range=(0.0, 1.0))
-            hist_features.extend(hist.astype("float32") / pixels.size)
-        vector[6:54] = np.array(hist_features, dtype="float32")
-        self._add_keyword_features(vector, source_name or "")
-
-        norm = np.linalg.norm(vector)
-        return vector / norm if norm else vector
-
-    def _encode_text_fallback(self, text):
-        text = (text or "").lower()
-        vector = np.zeros(512, dtype="float32")
-
-        matched = False
-        for keyword, (rgb, _) in self._keyword_map().items():
-            if keyword in text:
-                vector[0:3] += np.array(rgb, dtype="float32")
-                matched = True
-        matched = self._add_keyword_features(vector, text) or matched
-
-        if not matched:
-            digest = hashlib.sha256(text.encode("utf-8")).digest()
-            for i, byte in enumerate(digest):
-                vector[6 + i] = byte / 255.0
-            vector[0:3] = np.array([0.6, 0.6, 0.6], dtype="float32")
-
-        norm = np.linalg.norm(vector)
-        return vector / norm if norm else vector
-
-    def _keyword_map(self):
-        return {
-            "apple": ((0.82, 0.18, 0.20), 80),
-            "red": ((0.85, 0.16, 0.16), 70),
-            "banana": ((0.92, 0.78, 0.18), 100),
-            "yellow": ((0.92, 0.78, 0.18), 72),
-            "milk": ((0.92, 0.96, 1.00), 120),
-            "bottle": ((0.86, 0.92, 1.00), 110),
-            "orange": ((0.93, 0.50, 0.14), 140),
-            "bread": ((0.70, 0.46, 0.25), 160),
-            "tomato": ((0.82, 0.18, 0.18), 180),
-            "carrot": ((0.90, 0.43, 0.13), 200),
-            "grape": ((0.45, 0.28, 0.61), 220),
-            "purple": ((0.45, 0.28, 0.61), 230),
-        }
-
-    def _add_keyword_features(self, vector, text):
-        matched = False
-        for keyword, (_, offset) in self._keyword_map().items():
-            if keyword in text:
-                vector[offset] = 3.0
-                matched = True
-        return matched
+    def is_real_clip(self):
+        return self.fallback is None
