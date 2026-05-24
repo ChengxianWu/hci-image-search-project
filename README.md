@@ -158,7 +158,7 @@ The real CLIP model should be downloaded into:
 models/clip-vit-base-patch32
 ```
 
-### Method 1: Use Hugging Face Hub script
+### Use Hugging Face Hub script
 
 PowerShell:
 
@@ -183,30 +183,6 @@ set HF_ENDPOINT=https://hf-mirror.com
 
 python scripts\download_clip.py
 ```
-
-### Method 2: Use direct download script
-
-If download_clip.py fails because of Hugging Face metadata or SSL issues, use the direct download script:
-
-PowerShell:
-
-```powershell
-cd D:\image_search
-.\.venv\Scripts\activate
-
-python scripts\download_clip_direct.py
-```
-
-CMD:
-
-```cmd
-cd /d D:\image_search
-.\.venv\Scripts\activate
-
-python scripts\download_clip_direct.py
-```
-
-This script directly downloads the required CLIP files from the mirror.
 
 ## Check Local CLIP Model
 
