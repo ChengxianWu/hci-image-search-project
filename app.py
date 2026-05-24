@@ -96,14 +96,6 @@ with gr.Blocks(
         """
     )
 
-    with gr.Row():
-        gr.Markdown("**Formulation**")
-        gr.Markdown("**Preview**")
-        gr.Markdown("**Initiation**")
-        gr.Markdown("**Review**")
-        gr.Markdown("**Refinement**")
-        gr.Markdown("**Use**")
-
     with gr.Tab("Text-to-Image Search"):
         gr.Markdown("## Search images by text description")
 
